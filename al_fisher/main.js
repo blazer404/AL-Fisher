@@ -1,60 +1,85 @@
 class ALFisher {
-    static BASE_ROUTE = '/api/v1/anime/releases/';
-
-    static ROUTES = {
-        LATEST: this.BASE_ROUTE + 'latest',
-        RANDOM: this.BASE_ROUTE + 'random',
+    static #BASE_ROUTE = '/api/v1/anime/releases/';
+    static #ROUTES = {
+        LATEST: this.#BASE_ROUTE + 'latest',
+        RANDOM: this.#BASE_ROUTE + 'random',
     }
 
-    static ORIGINAL_FETCH = window.fetch.bind(window);
+    static #LOG_PREFIX = '[AL Fisher]';
+    static #COLOR_CODE = {
+        GREEN: '\x1b[32m',
+        YELLOW: '\x1b[33m',
+        RED: '\x1b[31m',
+        RESET: '\x1b[0m',
+    };
 
-    static main = () => this.#replaceFetch();
+    static #ORIGINAL_FETCH = window.fetch.bind(window);
 
-    static #replaceFetch = () => {
-        window.fetch = async (url, options) => {
-            let response = await this.ORIGINAL_FETCH(url, options);
-            if (this.#hasTargetRoute(response.url, this.BASE_ROUTE)) {
-                LogPrinter.logInfo('Перехватил запрос...', url);
-                LogPrinter.logInfo('Модифицирую ответ...');
+    static main = () => this.#patchFetch();
+
+    static #patchFetch() {
+        window.fetch = async (url, options) => this.#fetchHandler(url, options);
+    }
+
+    static async #fetchHandler(url, options) {
+        try {
+            let response = await this.#ORIGINAL_FETCH(url, options);
+            if (response.url && this.#hasTargetRoute(response.url, this.#BASE_ROUTE)) {
+                this.#log('Модифицирую ответ для', url);
                 response = await this.#processResponse(response);
-                LogPrinter.logInfo('Ответ модифицирован...');
+                this.#log('Ответ модифицирован...');
             }
             return response;
-        };
+        } catch (e) {
+            this.#logError('Ошибка при обработке запроса:', e);
+            throw e;
+        }
     }
 
-    static #hasTargetRoute = (currentUrl, targetRoute) => currentUrl.includes(targetRoute);
-
-    static #processResponse = async (originalResponse) => {
+    static #hasTargetRoute(currentUrl, targetRoute) {
         try {
-            const clonedResponse = originalResponse.clone();
-            let data = await clonedResponse.json();
-            data = this.#modifyData(clonedResponse.url, data);
-            return this.#createModifiedResponse(originalResponse, data);
-        } catch (error) {
-            LogPrinter.logError('Ошибка при обработке ответа:', error);
+            return new URL(currentUrl, window.location.origin).pathname.startsWith(targetRoute);
+        } catch (e) {
+            this.#logError('Ошибка при проверке URL:', e);
+            return false;
+        }
+    }
+
+    static async #processResponse(originalResponse) {
+        try {
+            if (!this.#isValidResponse(originalResponse)) {
+                this.#logWarning('Некорректный ответ от сервера...');
+                return originalResponse;
+            }
+            const [clonedResponse, data] = await Promise.all([
+                originalResponse.clone(),
+                originalResponse.json()
+            ]);
+            const modifiedData = this.#modifyData(clonedResponse.url, data);
+            return this.#createModifiedResponse(originalResponse, modifiedData);
+        } catch (e) {
+            this.#logError('Ошибка модификации ответа:', e);
             return originalResponse;
         }
     };
 
-    static #modifyData = (url, data) => {
-        if (!data) {
-            LogPrinter.logWarning('Данные не найдены...');
-        }
-        if (typeof data !== 'object' || data === null) {
-            LogPrinter.logWarning('Данные не являются объектом...');
+    static #isValidResponse(response) {
+        return response && response.ok && response.headers.get('content-type')?.includes('application/json');
+    }
+
+    static #modifyData(url, data) {
+        if (!data || typeof data !== 'object') {
+            this.#logWarning('Некорректные данные');
+            return data;
         }
         switch (true) {
-            case this.#hasTargetRoute(url, this.ROUTES.LATEST):
-                LogPrinter.logInfo('/latest');
+            case this.#hasTargetRoute(url, this.#ROUTES.LATEST):
                 //todo прогнать циклично каждый элемент в массиве
                 break;
-            case this.#hasTargetRoute(url, this.ROUTES.RANDOM):
-                LogPrinter.logInfo('/random');
+            case this.#hasTargetRoute(url, this.#ROUTES.RANDOM):
                 //todo прогнать циклично каждый элемент в массиве
                 break;
             default:
-                LogPrinter.logInfo('/');
                 //todo вынести в отдельный метод
                 if (data.is_blocked_by_geo) {
                     data.is_blocked_by_geo = false;
@@ -67,26 +92,32 @@ class ALFisher {
         return data;
     }
 
-    static #createModifiedResponse = (originalResponse, modifiedData) => {
+    static #createModifiedResponse(originalResponse, modifiedData) {
+        const headers = new Headers(originalResponse.headers);
+        headers.delete('content-length');
         return new Response(JSON.stringify(modifiedData), {
-            headers: originalResponse.headers,
+            headers,
             status: originalResponse.status,
             statusText: originalResponse.statusText,
         });
     }
+
+
+    static #log(message, details) {
+        console.log(this.#formatLog(this.#COLOR_CODE.GREEN, message, details));
+    }
+
+    static #logWarning(message) {
+        console.log(this.#formatLog(this.#COLOR_CODE.YELLOW, message));
+    }
+
+    static #logError(message, error) {
+        console.log(this.#formatLog(this.#COLOR_CODE.RED, message, error));
+    }
+
+    static #formatLog(color, message, extra = '') {
+        return `${color}${this.#LOG_PREFIX}${this.#COLOR_CODE.RESET} ${message} ${extra}`.trim();
+    }
 }
-
-class LogPrinter {
-    static logPrefix = '[AL Fisher]';
-    static colorGreen = '\x1b[32m';
-    static colorYellow = '\x1b[33m';
-    static colorRed = '\x1b[31m';
-    static colorReset = '\x1b[0m';
-
-    static logInfo = (message, details = '') => console.log(`${this.colorGreen}${this.logPrefix}${this.colorReset} ${message}`, details);
-    static logWarning = (message) => console.log(`${this.colorYellow}${this.logPrefix}${this.colorReset} ${message}`);
-    static logError = (message) => console.log(`${this.colorRed}${this.logPrefix}${this.colorReset} ${message}`);
-}
-
 
 ALFisher.main();
