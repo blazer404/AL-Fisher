@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "AL Fisher",
+  "version": "0.1",
+  "description": "Анус себе заблокируй",
+  "developer": {
+    "name": "BlazeR404",
+    "url": "https://github.com/blazer404"
+  },
+  "icons": {
+    "48": "icons/48.png",
+    "64": "icons/64.png",
+    "128": "icons/128.png"
+  },
+  "permissions": [],
+  "content_scripts": [
+    {
+      "js": [
+        "main.js"
+      ],
+      "matches": [
+        "*://anilibria.top/*"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    }
+  ]
+}
