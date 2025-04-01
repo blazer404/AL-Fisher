@@ -1,8 +1,10 @@
 class ALFisher {
-    static #BASE_ROUTE = '/api/v1/anime/releases/';
-    static #ROUTES = {
-        LATEST: this.#BASE_ROUTE + 'latest',
-        RANDOM: this.#BASE_ROUTE + 'random',
+
+    static #ROUTE = {
+        USER_LOCATION: '/api/v1/accounts/users/location',
+        RELEASES: '/api/v1/anime/releases/',
+        RELEASES_LATEST: '/api/v1/anime/releases/latest',
+        RELEASES_RANDOM: '/api/v1/anime/releases/random',
     }
 
     static #LOG_PREFIX = '[AL Fisher]';
@@ -11,7 +13,7 @@ class ALFisher {
         YELLOW: '\x1b[33m',
         RED: '\x1b[31m',
         RESET: '\x1b[0m',
-    };
+    }
 
     static #ORIGINAL_FETCH = window.fetch.bind(window);
 
@@ -24,7 +26,7 @@ class ALFisher {
     static async #fetchHandler(url, options) {
         try {
             let response = await this.#ORIGINAL_FETCH(url, options);
-            if (response.url && this.#hasTargetRoute(response.url, this.#BASE_ROUTE)) {
+            if (this.#hasTargetRoute(response.url, this.#ROUTE.USER_LOCATION) || this.#hasTargetRoute(response.url, this.#ROUTE.RELEASES)) {
                 this.#log('Модифицирую ответ для', url);
                 response = await this.#processResponse(response);
                 this.#log('Ответ модифицирован...');
@@ -38,6 +40,9 @@ class ALFisher {
 
     static #hasTargetRoute(currentUrl, targetRoute) {
         try {
+            if (!currentUrl || !targetRoute) {
+                return false;
+            }
             return new URL(currentUrl, window.location.origin).pathname.startsWith(targetRoute);
         } catch (e) {
             this.#logError('Ошибка при проверке URL:', e);
@@ -61,7 +66,7 @@ class ALFisher {
             this.#logError('Ошибка модификации ответа:', e);
             return originalResponse;
         }
-    };
+    }
 
     static #isValidResponse(response) {
         return response && response.ok && response.headers.get('content-type')?.includes('application/json');
@@ -73,10 +78,23 @@ class ALFisher {
             return data;
         }
         switch (true) {
-            case this.#hasTargetRoute(url, this.#ROUTES.LATEST):
+            case this.#hasTargetRoute(url, this.#ROUTE.USER_LOCATION):
+                //todo
+                // возможно стоит ставить туда чушь какую-то
+                // ответ -
+                // {
+                //     "ip": "***.***.***.***",
+                //     "country": "Russia",
+                //     "iso_code": "RU",
+                //     "timezone": "*****\/*****",
+                //     "restrictions": {
+                //         "hide_torrents": false
+                // }
+                break;
+            case this.#hasTargetRoute(url, this.#ROUTE.RELEASES_LATEST):
                 //todo прогнать циклично каждый элемент в массиве
                 break;
-            case this.#hasTargetRoute(url, this.#ROUTES.RANDOM):
+            case this.#hasTargetRoute(url, this.#ROUTE.RELEASES_RANDOM):
                 //todo прогнать циклично каждый элемент в массиве
                 break;
             default:
