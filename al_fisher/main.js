@@ -1,27 +1,27 @@
 (() => {
     const ORIGINAL_FETCH = window.fetch.bind(window);
 
-    const FAKE_USER_LOCATION = {
+    const FAKE_USER_LOCATION = Object.freeze({
         COUNTRY: 'Austria',
         ISO_CODE: 'AT',
         TIMEZONE: 'Europe/Vienna',
         IP_OCTETS: [137, 208, 0, 0],
-    }
-    const ROUTE = {
+    });
+    const ROUTE = Object.freeze({
         USER_LOCATION: '/api/v1/accounts/users/location',
         RELEASES: '/api/v1/anime/releases/',
         RELEASES_LATEST: '/api/v1/anime/releases/latest',
         RELEASES_RANDOM: '/api/v1/anime/releases/random',
-    }
+    });
 
     const LOG_PREFIX = '[AL Fisher]';
-    const COLOR_CODE = {
+    const COLOR_CODE = Object.freeze({
         GREEN: '\x1b[32m',
         YELLOW: '\x1b[33m',
         RED: '\x1b[31m',
         RESET: '\x1b[0m',
-    }
-    const logger = {
+    });
+    const logger = Object.freeze({
         /**
          * Информационное сообщение
          * @param {string} message - Основное сообщение
@@ -45,7 +45,7 @@
          * @param {Error} [error] - Объект ошибки
          */
         error(message, error) {
-            console.log(this._formatLog(COLOR_CODE.RED, message, error));
+            console.error(this._formatLog(COLOR_CODE.RED, message, error));
         },
 
         /**
@@ -59,18 +59,21 @@
         _formatLog(color, message, extra = '') {
             return `${color}${LOG_PREFIX}${COLOR_CODE.RESET} ${message} ${extra}`.trim();
         }
-    }
+    });
+
 
     /**
      * Инициализирует модуль, подменяя оригинальный fetch
+     * @returns {void}
      */
-    const init = () => {
+    function init() {
         logger.info('Инициализация модуля...');
         patchFetch();
     }
 
     /**
      * Подменяет оригинальный window.fetch на обработчик
+     * @returns {void}
      */
     function patchFetch() {
         window.fetch = async (url, options) => fetchHandler(url, options);
@@ -86,10 +89,12 @@
     async function fetchHandler(url, options) {
         try {
             let response = await ORIGINAL_FETCH(url, options);
-            if (hasTargetRoute(response.url, ROUTE.USER_LOCATION) || hasTargetRoute(response.url, ROUTE.RELEASES)) {
+            const targetRoutes = [ROUTE.USER_LOCATION, ROUTE.RELEASES];
+            const isTargetRoute = targetRoutes.some(route => hasTargetRoute(response.url, route));
+            if (isTargetRoute) {
                 logger.info('Модифицирую ответ для', url);
                 response = await handleResponse(response);
-                logger.info('Ответ модифицирован...');
+                logger.info('Ответ модифицирован для', url);
             }
             return response;
         } catch (e) {
@@ -162,18 +167,13 @@
         }
         switch (true) {
             case hasTargetRoute(url, ROUTE.USER_LOCATION):
-                data = setFakeUserLocation(data);
-                break;
+                return setFakeUserLocation(data);
             case hasTargetRoute(url, ROUTE.RELEASES_LATEST):
             case hasTargetRoute(url, ROUTE.RELEASES_RANDOM):
-                data = removeGeoAndCopyrightBlockEach(data);
-                break;
+                return removeGeoAndCopyrightBlockEach(data);
             default:
-                data = removeGeoAndCopyrightBlock(data);
-                break;
+                return removeGeoAndCopyrightBlock(data);
         }
-        console.table(data);
-        return data;
     }
 
     /**
@@ -195,7 +195,6 @@
             data.timezone = FAKE_USER_LOCATION.TIMEZONE;
         }
         if (data.restrictions?.hide_torrents) {
-            data.restrictions = data.restrictions || {};
             data.restrictions.hide_torrents = false;
         }
         return data;
