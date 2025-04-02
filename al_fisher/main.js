@@ -79,36 +79,73 @@ class ALFisher {
         }
         switch (true) {
             case this.#hasTargetRoute(url, this.#ROUTE.USER_LOCATION):
-                //todo
-                // возможно стоит ставить туда чушь какую-то
-                // ответ -
-                // {
-                //     "ip": "***.***.***.***",
-                //     "country": "Russia",
-                //     "iso_code": "RU",
-                //     "timezone": "*****\/*****",
-                //     "restrictions": {
-                //         "hide_torrents": false
-                // }
-                break;
+                return this.#modifyUserLocationData(data);
             case this.#hasTargetRoute(url, this.#ROUTE.RELEASES_LATEST):
-                //todo прогнать циклично каждый элемент в массиве
-                break;
+                return this.#modifyReleaseLatestData(data);
             case this.#hasTargetRoute(url, this.#ROUTE.RELEASES_RANDOM):
-                //todo прогнать циклично каждый элемент в массиве
-                break;
+                return this.#modifyReleaseRandomData(data);
             default:
-                //todo вынести в отдельный метод
-                if (data.is_blocked_by_geo) {
-                    data.is_blocked_by_geo = false;
-                }
-                if (data.is_blocked_by_copyrights) {
-                    data.is_blocked_by_copyrights = false;
-                }
-                break;
+                return this.#modifyDefaultData(data);
+
         }
+    }
+
+    static #modifyUserLocationData(data) {
+        if (data.ip) {
+            data.ip = this.#transformIpAddr(data.ip);
+        }
+        if (data.country) {
+            data.country = 'Austria';
+        }
+        if (data.iso_code) {
+            data.iso_code = 'AT';
+        }
+        if (data.timezone) {
+            data.timezone = 'Europe/Vienna';
+        }
+        if (data.restrictions && data.restrictions.hide_torrents) {
+            data.restrictions.hide_torrents = false;
+        }
+        console.log('LOCATION');
+        console.table(data);
         return data;
     }
+
+    static #transformIpAddr(ip) {
+        const octets = ip.split('.');
+        if (octets.length !== 4) {
+            return ip;
+        }
+        octets[0] = '137';
+        octets[1] = '208';
+        return octets.join('.');
+    }
+
+
+    static #modifyReleaseLatestData(data) {
+        console.log('LATEST');
+        console.table(data);
+        return data;
+    }
+
+    static #modifyReleaseRandomData(data) {
+        console.log('RANDOM');
+        console.table(data);
+        return data;
+    }
+
+    static #modifyDefaultData(data) {
+        if (data.is_blocked_by_geo) {
+            data.is_blocked_by_geo = false;
+        }
+        if (data.is_blocked_by_copyrights) {
+            data.is_blocked_by_copyrights = false;
+        }
+        console.log('DEFAULT');
+        console.table(data);
+        return data;
+    }
+
 
     static #createModifiedResponse(originalResponse, modifiedData) {
         const headers = new Headers(originalResponse.headers);
