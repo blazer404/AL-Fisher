@@ -1,4 +1,6 @@
 (() => {
+    const ORIGINAL_FETCH = window.fetch.bind(window);
+
     const FAKE_USER_LOCATION = {
         COUNTRY: 'Austria',
         ISO_CODE: 'AT',
@@ -20,34 +22,73 @@
         RESET: '\x1b[0m',
     }
     const logger = {
-        info: function logInfo(message, details) {
-            console.log(this.formatLog(COLOR_CODE.GREEN, message, details));
+        /**
+         * Информационное сообщение
+         * @param {string} message - Основное сообщение
+         * @param {string|Object} [details] - Дополнительные детали
+         */
+        info(message, details) {
+            console.log(this._formatLog(COLOR_CODE.GREEN, message, details));
         },
-        warning: function logWarning(message) {
-            console.log(this.formatLog(COLOR_CODE.YELLOW, message));
+
+        /**
+         * Предупреждение
+         * @param {string} message - Текст предупреждения
+         */
+        warning(message) {
+            console.log(this._formatLog(COLOR_CODE.YELLOW, message));
         },
-        error: function logError(message, error) {
-            console.log(this.formatLog(COLOR_CODE.RED, message, error));
+
+        /**
+         * Ошибка
+         * @param {string} message - Текст ошибки
+         * @param {Error} [error] - Объект ошибки
+         */
+        error(message, error) {
+            console.log(this._formatLog(COLOR_CODE.RED, message, error));
         },
-        formatLog: function formatLog(color, message, extra = '') {
+
+        /**
+         * Форматирует строку лога с цветом
+         * @param {string} color - ANSI цветовой код
+         * @param {string} message - Основное сообщение
+         * @param {string|Object} [extra=''] - Дополнительная информация
+         * @returns {string} Отформатированная строка лога
+         * @private
+         */
+        _formatLog(color, message, extra = '') {
             return `${color}${LOG_PREFIX}${COLOR_CODE.RESET} ${message} ${extra}`.trim();
         }
     }
 
-    const ORIGINAL_FETCH = window.fetch.bind(window);
+    /**
+     * Инициализирует модуль, подменяя оригинальный fetch
+     */
+    const init = () => {
+        logger.info('Инициализация модуля...');
+        patchFetch();
+    }
 
-    const init = () => patchFetch();
-
+    /**
+     * Подменяет оригинальный window.fetch на обработчик
+     */
     function patchFetch() {
         window.fetch = async (url, options) => fetchHandler(url, options);
     }
 
+    /**
+     * Обработчик fetch запросов
+     * @async
+     * @param {string|Request} url URL запроса
+     * @param {Object} [options] Параметры запроса
+     * @returns {Promise<Response>} Обработанный ответ
+     */
     async function fetchHandler(url, options) {
         try {
             let response = await ORIGINAL_FETCH(url, options);
             if (hasTargetRoute(response.url, ROUTE.USER_LOCATION) || hasTargetRoute(response.url, ROUTE.RELEASES)) {
                 logger.info('Модифицирую ответ для', url);
-                response = await processResponse(response);
+                response = await handleResponse(response);
                 logger.info('Ответ модифицирован...');
             }
             return response;
@@ -57,6 +98,12 @@
         }
     }
 
+    /**
+     * Проверяет, соответствует ли URL целевому маршруту
+     * @param {string} currentUrl Проверяемый URL
+     * @param {string} targetRoute Целевой маршрут
+     * @returns {boolean} true если URL соответствует маршруту
+     */
     function hasTargetRoute(currentUrl, targetRoute) {
         try {
             if (!currentUrl || !targetRoute) {
@@ -69,7 +116,13 @@
         }
     }
 
-    async function processResponse(originalResponse) {
+    /**
+     * Обрабатывает и модифицирует ответ сервера
+     * @async
+     * @param {Response} originalResponse Оригинальный ответ
+     * @returns {Promise<Response>} Модифицированный ответ
+     */
+    async function handleResponse(originalResponse) {
         try {
             if (!isValidResponse(originalResponse)) {
                 logger.warning('Некорректный ответ от сервера...');
@@ -87,10 +140,21 @@
         }
     }
 
+    /**
+     * Проверяет валидность ответа для обработки
+     * @param {Response} response Ответ для проверки
+     * @returns {boolean} true если ответ валиден
+     */
     function isValidResponse(response) {
         return response && response.ok && response.headers.get('content-type')?.includes('application/json');
     }
 
+    /**
+     * Модифицирует JSON данные в зависимости от URL
+     * @param {string} url URL запроса
+     * @param {Object|Array} data Данные для модификации
+     * @returns {Object|Array} Модифицированные данные
+     */
     function modifyData(url, data) {
         if (!data || typeof data !== 'object') {
             logger.warning('Некорректные данные');
@@ -112,6 +176,11 @@
         return data;
     }
 
+    /**
+     * Устанавливает фейковую геолокацию пользователя
+     * @param {Object} data Данные геолокации для обработки
+     * @returns {Object} Модифицированные данные
+     */
     function setFakeUserLocation(data) {
         if (data.ip) {
             data.ip = transformIpAddr(data.ip);
@@ -125,12 +194,18 @@
         if (data.timezone) {
             data.timezone = FAKE_USER_LOCATION.TIMEZONE;
         }
-        if (data.restrictions && data.restrictions.hide_torrents) {
+        if (data.restrictions?.hide_torrents) {
+            data.restrictions = data.restrictions || {};
             data.restrictions.hide_torrents = false;
         }
         return data;
     }
 
+    /**
+     * Трансформирует IP адрес
+     * @param {string} ip Оригинальный IP
+     * @returns {string} Модифицированный IP
+     */
     function transformIpAddr(ip) {
         const octets = ip.split('.');
         if (octets.length !== 4) {
@@ -141,13 +216,20 @@
         return octets.join('.');
     }
 
+    /**
+     * Удаляет гео и копирайт блокировки для каждого элемента массива
+     * @param {Array} data Массив данных
+     * @returns {Array} Модифицированный массив
+     */
     function removeGeoAndCopyrightBlockEach(data) {
-        data.forEach((element, i) => {
-            data[i] = removeGeoAndCopyrightBlock(element);
-        })
-        return data;
+        return data.map(item => removeGeoAndCopyrightBlock(item));
     }
 
+    /**
+     * Удаляет гео и копирайт блокировки
+     * @param {Object} data Данные для обработки
+     * @returns {Object} Модифицированные данные
+     */
     function removeGeoAndCopyrightBlock(data) {
         if (data.is_blocked_by_geo) {
             data.is_blocked_by_geo = false;
@@ -158,7 +240,12 @@
         return data;
     }
 
-
+    /**
+     * Создает модифицированный ответ сервера
+     * @param {Response} originalResponse Оригинальный ответ
+     * @param {Object|Array} modifiedData Модифицированные данные
+     * @returns {Response} Новый объект Response
+     */
     function createModifiedResponse(originalResponse, modifiedData) {
         const headers = new Headers(originalResponse.headers);
         headers.delete('content-length');
