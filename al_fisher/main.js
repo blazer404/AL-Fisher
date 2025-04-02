@@ -1,107 +1,126 @@
-class ALFisher {
-
-    static #ROUTE = {
+(() => {
+    const FAKE_USER_LOCATION = {
+        COUNTRY: 'Austria',
+        ISO_CODE: 'AT',
+        TIMEZONE: 'Europe/Vienna',
+        IP_OCTETS: [137, 208, 0, 0],
+    }
+    const ROUTE = {
         USER_LOCATION: '/api/v1/accounts/users/location',
         RELEASES: '/api/v1/anime/releases/',
         RELEASES_LATEST: '/api/v1/anime/releases/latest',
         RELEASES_RANDOM: '/api/v1/anime/releases/random',
     }
 
-    static #LOG_PREFIX = '[AL Fisher]';
-    static #COLOR_CODE = {
+    const LOG_PREFIX = '[AL Fisher]';
+    const COLOR_CODE = {
         GREEN: '\x1b[32m',
         YELLOW: '\x1b[33m',
         RED: '\x1b[31m',
         RESET: '\x1b[0m',
     }
-
-    static #ORIGINAL_FETCH = window.fetch.bind(window);
-
-    static main = () => this.#patchFetch();
-
-    static #patchFetch() {
-        window.fetch = async (url, options) => this.#fetchHandler(url, options);
+    const logger = {
+        info: function logInfo(message, details) {
+            console.log(this.formatLog(COLOR_CODE.GREEN, message, details));
+        },
+        warning: function logWarning(message) {
+            console.log(this.formatLog(COLOR_CODE.YELLOW, message));
+        },
+        error: function logError(message, error) {
+            console.log(this.formatLog(COLOR_CODE.RED, message, error));
+        },
+        formatLog: function formatLog(color, message, extra = '') {
+            return `${color}${LOG_PREFIX}${COLOR_CODE.RESET} ${message} ${extra}`.trim();
+        }
     }
 
-    static async #fetchHandler(url, options) {
+    const ORIGINAL_FETCH = window.fetch.bind(window);
+
+    const init = () => patchFetch();
+
+    function patchFetch() {
+        window.fetch = async (url, options) => fetchHandler(url, options);
+    }
+
+    async function fetchHandler(url, options) {
         try {
-            let response = await this.#ORIGINAL_FETCH(url, options);
-            if (this.#hasTargetRoute(response.url, this.#ROUTE.USER_LOCATION) || this.#hasTargetRoute(response.url, this.#ROUTE.RELEASES)) {
-                this.#log('Модифицирую ответ для', url);
-                response = await this.#processResponse(response);
-                this.#log('Ответ модифицирован...');
+            let response = await ORIGINAL_FETCH(url, options);
+            if (hasTargetRoute(response.url, ROUTE.USER_LOCATION) || hasTargetRoute(response.url, ROUTE.RELEASES)) {
+                logger.info('Модифицирую ответ для', url);
+                response = await processResponse(response);
+                logger.info('Ответ модифицирован...');
             }
             return response;
         } catch (e) {
-            this.#logError('Ошибка при обработке запроса:', e);
+            logger.error('Ошибка при обработке запроса:', e);
             throw e;
         }
     }
 
-    static #hasTargetRoute(currentUrl, targetRoute) {
+    function hasTargetRoute(currentUrl, targetRoute) {
         try {
             if (!currentUrl || !targetRoute) {
                 return false;
             }
             return new URL(currentUrl, window.location.origin).pathname.startsWith(targetRoute);
         } catch (e) {
-            this.#logError('Ошибка при проверке URL:', e);
+            logger.error('Ошибка при проверке URL:', e);
             return false;
         }
     }
 
-    static async #processResponse(originalResponse) {
+    async function processResponse(originalResponse) {
         try {
-            if (!this.#isValidResponse(originalResponse)) {
-                this.#logWarning('Некорректный ответ от сервера...');
+            if (!isValidResponse(originalResponse)) {
+                logger.warning('Некорректный ответ от сервера...');
                 return originalResponse;
             }
             const [clonedResponse, data] = await Promise.all([
                 originalResponse.clone(),
                 originalResponse.json()
             ]);
-            const modifiedData = this.#modifyData(clonedResponse.url, data);
-            return this.#createModifiedResponse(originalResponse, modifiedData);
+            const modifiedData = modifyData(clonedResponse.url, data);
+            return createModifiedResponse(originalResponse, modifiedData);
         } catch (e) {
-            this.#logError('Ошибка модификации ответа:', e);
+            logger.error('Ошибка модификации ответа:', e);
             return originalResponse;
         }
     }
 
-    static #isValidResponse(response) {
+    function isValidResponse(response) {
         return response && response.ok && response.headers.get('content-type')?.includes('application/json');
     }
 
-    static #modifyData(url, data) {
+    function modifyData(url, data) {
         if (!data || typeof data !== 'object') {
-            this.#logWarning('Некорректные данные');
+            logger.warning('Некорректные данные');
             return data;
         }
         switch (true) {
-            case this.#hasTargetRoute(url, this.#ROUTE.USER_LOCATION):
-                return this.#modifyUserLocationData(data);
-            case this.#hasTargetRoute(url, this.#ROUTE.RELEASES_LATEST):
-                return this.#modifyReleaseLatestData(data);
-            case this.#hasTargetRoute(url, this.#ROUTE.RELEASES_RANDOM):
-                return this.#modifyReleaseRandomData(data);
+            case hasTargetRoute(url, ROUTE.USER_LOCATION):
+                return modifyUserLocationData(data);
+            case hasTargetRoute(url, ROUTE.RELEASES_LATEST):
+                return modifyReleaseLatestData(data);
+            case hasTargetRoute(url, ROUTE.RELEASES_RANDOM):
+                return modifyReleaseRandomData(data);
             default:
-                return this.#modifyDefaultData(data);
+                return modifyDefaultData(data);
 
         }
     }
 
-    static #modifyUserLocationData(data) {
+    function modifyUserLocationData(data) {
         if (data.ip) {
-            data.ip = this.#transformIpAddr(data.ip);
+            data.ip = transformIpAddr(data.ip);
         }
         if (data.country) {
-            data.country = 'Austria';
+            data.country = FAKE_USER_LOCATION.COUNTRY;
         }
         if (data.iso_code) {
-            data.iso_code = 'AT';
+            data.iso_code = FAKE_USER_LOCATION.ISO_CODE;
         }
         if (data.timezone) {
-            data.timezone = 'Europe/Vienna';
+            data.timezone = FAKE_USER_LOCATION.TIMEZONE;
         }
         if (data.restrictions && data.restrictions.hide_torrents) {
             data.restrictions.hide_torrents = false;
@@ -111,30 +130,30 @@ class ALFisher {
         return data;
     }
 
-    static #transformIpAddr(ip) {
+    function transformIpAddr(ip) {
         const octets = ip.split('.');
         if (octets.length !== 4) {
             return ip;
         }
-        octets[0] = '137';
-        octets[1] = '208';
+        octets[0] = FAKE_USER_LOCATION.IP_OCTETS[0];
+        octets[1] = FAKE_USER_LOCATION.IP_OCTETS[1];
         return octets.join('.');
     }
 
 
-    static #modifyReleaseLatestData(data) {
+    function modifyReleaseLatestData(data) {
         console.log('LATEST');
         console.table(data);
         return data;
     }
 
-    static #modifyReleaseRandomData(data) {
+    function modifyReleaseRandomData(data) {
         console.log('RANDOM');
         console.table(data);
         return data;
     }
 
-    static #modifyDefaultData(data) {
+    function modifyDefaultData(data) {
         if (data.is_blocked_by_geo) {
             data.is_blocked_by_geo = false;
         }
@@ -147,7 +166,7 @@ class ALFisher {
     }
 
 
-    static #createModifiedResponse(originalResponse, modifiedData) {
+    function createModifiedResponse(originalResponse, modifiedData) {
         const headers = new Headers(originalResponse.headers);
         headers.delete('content-length');
         return new Response(JSON.stringify(modifiedData), {
@@ -158,21 +177,5 @@ class ALFisher {
     }
 
 
-    static #log(message, details) {
-        console.log(this.#formatLog(this.#COLOR_CODE.GREEN, message, details));
-    }
-
-    static #logWarning(message) {
-        console.log(this.#formatLog(this.#COLOR_CODE.YELLOW, message));
-    }
-
-    static #logError(message, error) {
-        console.log(this.#formatLog(this.#COLOR_CODE.RED, message, error));
-    }
-
-    static #formatLog(color, message, extra = '') {
-        return `${color}${this.#LOG_PREFIX}${this.#COLOR_CODE.RESET} ${message} ${extra}`.trim();
-    }
-}
-
-ALFisher.main();
+    init();
+})();
