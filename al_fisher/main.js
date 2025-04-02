@@ -98,18 +98,21 @@
         }
         switch (true) {
             case hasTargetRoute(url, ROUTE.USER_LOCATION):
-                return modifyUserLocationData(data);
+                data = setFakeUserLocation(data);
+                break;
             case hasTargetRoute(url, ROUTE.RELEASES_LATEST):
-                return modifyReleaseLatestData(data);
             case hasTargetRoute(url, ROUTE.RELEASES_RANDOM):
-                return modifyReleaseRandomData(data);
+                data = removeGeoAndCopyrightBlockEach(data);
+                break;
             default:
-                return modifyDefaultData(data);
-
+                data = removeGeoAndCopyrightBlock(data);
+                break;
         }
+        console.table(data);
+        return data;
     }
 
-    function modifyUserLocationData(data) {
+    function setFakeUserLocation(data) {
         if (data.ip) {
             data.ip = transformIpAddr(data.ip);
         }
@@ -125,8 +128,6 @@
         if (data.restrictions && data.restrictions.hide_torrents) {
             data.restrictions.hide_torrents = false;
         }
-        console.log('LOCATION');
-        console.table(data);
         return data;
     }
 
@@ -140,28 +141,20 @@
         return octets.join('.');
     }
 
-
-    function modifyReleaseLatestData(data) {
-        console.log('LATEST');
-        console.table(data);
+    function removeGeoAndCopyrightBlockEach(data) {
+        data.forEach((element, i) => {
+            data[i] = removeGeoAndCopyrightBlock(element);
+        })
         return data;
     }
 
-    function modifyReleaseRandomData(data) {
-        console.log('RANDOM');
-        console.table(data);
-        return data;
-    }
-
-    function modifyDefaultData(data) {
+    function removeGeoAndCopyrightBlock(data) {
         if (data.is_blocked_by_geo) {
             data.is_blocked_by_geo = false;
         }
         if (data.is_blocked_by_copyrights) {
             data.is_blocked_by_copyrights = false;
         }
-        console.log('DEFAULT');
-        console.table(data);
         return data;
     }
 
