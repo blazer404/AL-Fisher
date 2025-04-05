@@ -1,0 +1,19 @@
+{
+  "name": "al_fisher",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "build": "gulp build && node crx_builder.js"
+  },
+  "keywords": [],
+  "author": "BlazeR404",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "crx": "^5.0.1",
+    "del": "^8.0.0",
+    "gulp": "^5.0.0",
+    "terser-webpack-plugin": "^5.3.14",
+    "webpack-stream": "^7.0.0"
+  }
+}
