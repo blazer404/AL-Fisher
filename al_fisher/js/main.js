@@ -1,21 +1,10 @@
+import {FAKE_USER_LOCATION, ROUTE} from './module/Constants';
 import {Logger} from './module/Logger.js';
+import {DataValidator} from "./module/DataValidator";
 
 
 (() => {
     const ORIGINAL_FETCH = window.fetch.bind(window);
-
-    const FAKE_USER_LOCATION = Object.freeze({
-        COUNTRY: 'Austria',
-        ISO_CODE: 'AT',
-        TIMEZONE: 'Europe/Vienna',
-        IP_OCTETS: [137, 208, 0, 0],
-    });
-    const ROUTE = Object.freeze({
-        USER_LOCATION: '/api/v1/accounts/users/location',
-        RELEASES: '/api/v1/anime/releases/',
-        RELEASES_LATEST: '/api/v1/anime/releases/latest',
-        RELEASES_RANDOM: '/api/v1/anime/releases/random',
-    });
 
 
     /**
@@ -88,14 +77,14 @@ import {Logger} from './module/Logger.js';
      */
     async function handleResponse(response, requestUrl, requestOptions) {
         try {
-            if (!isValidResponse(response)) {
+            if (!DataValidator.isValidResponse(response)) {
                 Logger.warning('Некорректный ответ от сервера...');
                 return response;
             }
             let data = await response.json();
 
             if (needProxy(data)) {
-                Logger.info('Запрос обработан, идет проксирование...');
+                Logger.warning('Запрос обработан, идет проксирование...');
                 response = await proxifiedResponse(requestUrl, requestOptions);
                 const json = await response.json();
                 data = json.contents ? JSON.parse(json.contents) : data;
@@ -109,14 +98,6 @@ import {Logger} from './module/Logger.js';
         }
     }
 
-    /**
-     * Проверяет валидность ответа для обработки
-     * @param {Response} response Ответ для проверки
-     * @returns {boolean} true если ответ валиден
-     */
-    function isValidResponse(response) {
-        return response && response.ok && response.headers.get('content-type')?.includes('application/json');
-    }
 
     /**
      * Модифицирует JSON данные в зависимости от URL
@@ -125,7 +106,8 @@ import {Logger} from './module/Logger.js';
      * @returns {Object|Array} Модифицированные данные
      */
     function modifyData(url, data) {
-        if (!dataIsValid(data)) {
+        if (!DataValidator.isValidData(data)) {
+            Logger.warning('Получены некорректные данные');
             return data;
         }
         switch (true) {
@@ -225,7 +207,7 @@ import {Logger} from './module/Logger.js';
      * @returns {boolean}
      */
     function needProxy(data) {
-        if (!dataIsValid(data)) {
+        if (!DataValidator.isValidData(data)) {
             return false;
         }
         if (!data.episodes_total) {
@@ -243,19 +225,6 @@ import {Logger} from './module/Logger.js';
     async function proxifiedResponse(url, options) {
         url = `https://api.allorigins.win/get?url=${window.location.origin}${url}`
         return await ORIGINAL_FETCH(url, options);
-    }
-
-    /**
-     * Данные валидны для модификации
-     * @param data
-     * @returns {boolean}
-     */
-    function dataIsValid(data) {
-        if (!data || typeof data !== 'object') {
-            Logger.warning('Некорректные данные');
-            return false;
-        }
-        return true;
     }
 
 
