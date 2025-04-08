@@ -46,12 +46,13 @@ import {Logger} from './module/Logger.js';
         try {
             let response = await ORIGINAL_FETCH(url, options);
             const targetRoutes = [ROUTE.USER_LOCATION, ROUTE.RELEASES];
-            const isTargetRoute = targetRoutes.some(route => hasTargetRoute(response.url, route));
-            if (isTargetRoute) {
-                Logger.info('Модифицирую ответ для', url);
-                response = await handleResponse(response);
-                Logger.info('Ответ модифицирован для', url);
+            const isTargetRoute = targetRoutes.some((route) => hasTargetRoute(url, route));
+            if (!isTargetRoute) {
+                return response;
             }
+            Logger.info('Модифицирую ответ для', url);
+            response = await handleResponse(response, url, options);
+            Logger.info('Ответ модифицирован для', url);
             return response;
         } catch (e) {
             Logger.error('Ошибка при обработке запроса:', e);
@@ -80,24 +81,31 @@ import {Logger} from './module/Logger.js';
     /**
      * Обрабатывает и модифицирует ответ сервера
      * @async
-     * @param {Response} originalResponse Оригинальный ответ
+     * @param {Response} response Оригинальный ответ
+     * @param requestUrl
+     * @param requestOptions
      * @returns {Promise<Response>} Модифицированный ответ
      */
-    async function handleResponse(originalResponse) {
+    async function handleResponse(response, requestUrl, requestOptions) {
         try {
-            if (!isValidResponse(originalResponse)) {
+            if (!isValidResponse(response)) {
                 Logger.warning('Некорректный ответ от сервера...');
-                return originalResponse;
+                return response;
             }
-            const [clonedResponse, data] = await Promise.all([
-                originalResponse.clone(),
-                originalResponse.json()
-            ]);
-            const modifiedData = modifyData(clonedResponse.url, data);
-            return createModifiedResponse(originalResponse, modifiedData);
+            let data = await response.json();
+
+            if (needProxy(data)) {
+                Logger.info('Запрос обработан, идет проксирование...');
+                response = await proxifiedResponse(requestUrl, requestOptions);
+                const json = await response.json();
+                data = json.contents ? JSON.parse(json.contents) : data;
+            }
+
+            const modifiedData = modifyData(response.url, data);
+            return createModifiedResponse(response, modifiedData);
         } catch (e) {
             Logger.error('Ошибка модификации ответа:', e);
-            return originalResponse;
+            return response;
         }
     }
 
@@ -117,8 +125,7 @@ import {Logger} from './module/Logger.js';
      * @returns {Object|Array} Модифицированные данные
      */
     function modifyData(url, data) {
-        if (!data || typeof data !== 'object') {
-            Logger.warning('Некорректные данные');
+        if (!dataIsValid(data)) {
             return data;
         }
         switch (true) {
@@ -209,6 +216,46 @@ import {Logger} from './module/Logger.js';
             status: originalResponse.status,
             statusText: originalResponse.statusText,
         });
+    }
+
+
+    /**
+     * Необходимо проксировать данные, потому что они не валидны
+     * @param data
+     * @returns {boolean}
+     */
+    function needProxy(data) {
+        if (!dataIsValid(data)) {
+            return false;
+        }
+        if (!data.episodes_total) {
+            return false
+        }
+        return Array.isArray(data.episodes) && !data.episodes?.length;
+    }
+
+    /**
+     * Проксирует данные
+     * @param url
+     * @param options
+     * @returns {Promise<*>}
+     */
+    async function proxifiedResponse(url, options) {
+        url = `https://api.allorigins.win/get?url=${window.location.origin}${url}`
+        return await ORIGINAL_FETCH(url, options);
+    }
+
+    /**
+     * Данные валидны для модификации
+     * @param data
+     * @returns {boolean}
+     */
+    function dataIsValid(data) {
+        if (!data || typeof data !== 'object') {
+            Logger.warning('Некорректные данные');
+            return false;
+        }
+        return true;
     }
 
 
