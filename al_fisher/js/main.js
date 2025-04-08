@@ -1,3 +1,6 @@
+import {Logger} from './module/Logger.js';
+
+
 (() => {
     const ORIGINAL_FETCH = window.fetch.bind(window);
 
@@ -14,60 +17,13 @@
         RELEASES_RANDOM: '/api/v1/anime/releases/random',
     });
 
-    const LOG_PREFIX = '[AL Fisher]';
-    const COLOR_CODE = Object.freeze({
-        GREEN: '\x1b[32m',
-        YELLOW: '\x1b[33m',
-        RED: '\x1b[31m',
-        RESET: '\x1b[0m',
-    });
-    const logger = Object.freeze({
-        /**
-         * Информационное сообщение
-         * @param {string} message - Основное сообщение
-         * @param {string|Object} [details] - Дополнительные детали
-         */
-        info(message, details) {
-            console.log(this._formatLog(COLOR_CODE.GREEN, message, details));
-        },
-
-        /**
-         * Предупреждение
-         * @param {string} message - Текст предупреждения
-         */
-        warning(message) {
-            console.log(this._formatLog(COLOR_CODE.YELLOW, message));
-        },
-
-        /**
-         * Ошибка
-         * @param {string} message - Текст ошибки
-         * @param {Error} [error] - Объект ошибки
-         */
-        error(message, error) {
-            console.error(this._formatLog(COLOR_CODE.RED, message, error));
-        },
-
-        /**
-         * Форматирует строку лога с цветом
-         * @param {string} color - ANSI цветовой код
-         * @param {string} message - Основное сообщение
-         * @param {string|Object} [extra=''] - Дополнительная информация
-         * @returns {string} Отформатированная строка лога
-         * @private
-         */
-        _formatLog(color, message, extra = '') {
-            return `${color}${LOG_PREFIX}${COLOR_CODE.RESET} ${message} ${extra}`.trim();
-        }
-    });
-
 
     /**
      * Инициализирует модуль, подменяя оригинальный fetch
      * @returns {void}
      */
     function init() {
-        logger.info('Инициализация модуля...');
+        Logger.info('Инициализация модуля...');
         patchFetch();
     }
 
@@ -92,13 +48,13 @@
             const targetRoutes = [ROUTE.USER_LOCATION, ROUTE.RELEASES];
             const isTargetRoute = targetRoutes.some(route => hasTargetRoute(response.url, route));
             if (isTargetRoute) {
-                logger.info('Модифицирую ответ для', url);
+                Logger.info('Модифицирую ответ для', url);
                 response = await handleResponse(response);
-                logger.info('Ответ модифицирован для', url);
+                Logger.info('Ответ модифицирован для', url);
             }
             return response;
         } catch (e) {
-            logger.error('Ошибка при обработке запроса:', e);
+            Logger.error('Ошибка при обработке запроса:', e);
             throw e;
         }
     }
@@ -116,7 +72,7 @@
             }
             return new URL(currentUrl, window.location.origin).pathname.startsWith(targetRoute);
         } catch (e) {
-            logger.error('Ошибка при проверке URL:', e);
+            Logger.error('Ошибка при проверке URL:', e);
             return false;
         }
     }
@@ -130,7 +86,7 @@
     async function handleResponse(originalResponse) {
         try {
             if (!isValidResponse(originalResponse)) {
-                logger.warning('Некорректный ответ от сервера...');
+                Logger.warning('Некорректный ответ от сервера...');
                 return originalResponse;
             }
             const [clonedResponse, data] = await Promise.all([
@@ -140,7 +96,7 @@
             const modifiedData = modifyData(clonedResponse.url, data);
             return createModifiedResponse(originalResponse, modifiedData);
         } catch (e) {
-            logger.error('Ошибка модификации ответа:', e);
+            Logger.error('Ошибка модификации ответа:', e);
             return originalResponse;
         }
     }
@@ -162,7 +118,7 @@
      */
     function modifyData(url, data) {
         if (!data || typeof data !== 'object') {
-            logger.warning('Некорректные данные');
+            Logger.warning('Некорректные данные');
             return data;
         }
         switch (true) {
