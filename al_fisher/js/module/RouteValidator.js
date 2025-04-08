@@ -7,7 +7,7 @@ export class RouteValidator {
      * @param url Проверяемый URL
      * @returns {boolean}
      */
-    isTargetRoute(url) {
+    needInterceptRequest(url) {
         return [ROUTE.USER_LOCATION, ROUTE.RELEASES].some(route =>
             this.hasTargetRoute(url, route)
         );

@@ -3,7 +3,7 @@ import {DataValidator} from './DataValidator';
 import {Logger} from './Logger';
 import {RouteValidator} from './RouteValidator';
 
-export class DataModifier {
+export class DataTransformer {
     constructor() {
         this.routeValidator = new RouteValidator();
     }
@@ -14,7 +14,7 @@ export class DataModifier {
      * @param {Object|Array} data Данные для модификации
      * @returns {Object|Array} Модифицированные данные
      */
-    modifyData(url, data) {
+    transformData(url, data) {
         if (!DataValidator.isValidData(data)) {
             Logger.warning('Получены некорректные данные');
             return data;

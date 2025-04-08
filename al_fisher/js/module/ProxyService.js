@@ -1,11 +1,11 @@
+import {PROXY_API_URL} from './Constants';
 import {DataValidator} from './DataValidator';
-import {Logger} from "./Logger";
-import {PROXY_API_URL} from "./Constants";
+import {Logger} from './Logger';
 
 export class ProxyService {
     constructor(originalFetch) {
-        this.ORIGINAL_FETCH = originalFetch;
-        this.PROXY_API_URL = PROXY_API_URL
+        this.originalFetch = originalFetch;
+        this.proxyApiUrl = PROXY_API_URL;
     }
 
     /**
@@ -46,7 +46,7 @@ export class ProxyService {
      * @returns {Promise<*>} Проксированный ответ
      */
     async #fetchResponse(url, options) {
-        url = `${this.PROXY_API_URL}${window.location.origin}${url}`;
-        return await this.ORIGINAL_FETCH(url, options);
+        url = `${this.proxyApiUrl}${window.location.origin}${url}`;
+        return await this.originalFetch(url, options);
     }
 }
