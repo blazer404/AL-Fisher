@@ -4,7 +4,7 @@ import {Logger} from './Logger';
 export class RouteValidator {
     /**
      * Является ли URL целевым для модификации
-     * @param url Проверяемый URL
+     * @param {string} url Проверяемый URL
      * @returns {boolean}
      */
     needInterceptRequest(url) {
@@ -27,5 +27,16 @@ export class RouteValidator {
             Logger.error('Ошибка при проверке URL:', e);
             return false;
         }
+    }
+
+    /**
+     * Является ли URL маршрутом видео
+     * @param {string} url Проверяемый URL
+     * @returns {boolean}
+     */
+    isVideoRoute(url) {
+        const pattern = new RegExp(`${ROUTE.EPISODES}([a-zA-Z0-9]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+-[a-zA-Z0-9]+)`);
+        const match = url.match(pattern);
+        return Array.isArray(match) && match[0] === url;
     }
 }

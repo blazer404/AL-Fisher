@@ -29,9 +29,8 @@ export class ProxyService {
      */
     async fetchData(requestUrl, requestOptions) {
         try {
-            const response = await this.#fetchResponse(requestUrl, requestOptions);
-            const data = await response.json();
-            return data.contents ? JSON.parse(data.contents) : null;
+            const response = await this.fetchResponse(requestUrl, requestOptions);
+            return this.parseResponseData(response);
         } catch (e) {
             Logger.warning('Проксирование не удалось...');
             return null;
@@ -41,12 +40,35 @@ export class ProxyService {
     /**
      * Проксирует данные по указанному URL
      * @async
-     * @param {string|Request} url URL запроса
-     * @param {Object} [options] Параметры запроса
+     * @param {string|Request} requestUrl URL запроса
+     * @param {Object} [requestOptions] Параметры запроса
      * @returns {Promise<*>} Проксированный ответ
      */
-    async #fetchResponse(url, options) {
-        url = `${this.proxyApiUrl}${window.location.origin}${url}`;
-        return await this.originalFetch(url, options);
+    async fetchResponse(requestUrl, requestOptions) {
+        requestUrl = `${this.proxyApiUrl}${window.location.origin}${requestUrl}`;
+        requestOptions.headers = this.#setRequestHeaders(requestOptions.headers);
+        return await this.originalFetch(requestUrl, requestOptions)
+    }
+
+    /**
+     * Устанавливает новые заголовки запроса
+     * @param originalHeaders Оригинальные заголовки
+     * @returns {Headers}
+     */
+    #setRequestHeaders(originalHeaders) {
+        const headers = new Headers(originalHeaders || {});
+        headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 OPR/117.0.0.0');
+        headers.delete('content-length');
+        return headers;
+    }
+
+    /**
+     * Разобрать проксированный ответ
+     * @param response
+     * @returns {Promise<any|null>}
+     */
+    async parseResponseData(response) {
+        const data = await response.json();
+        return data.contents ? JSON.parse(data.contents) : null;
     }
 }

@@ -54,15 +54,47 @@ export class FetchInterceptor {
      */
     async #transformResponse(response, requestUrl, requestOptions) {
         try {
-            if (!DataValidator.isValidResponse(response)) {
-                Logger.warning('Некорректный ответ от сервера...');
-                return response;
+            //todo
+            // отрефакторить метод
+
+            let data;
+            if (this.routeValidator.isVideoRoute(requestUrl) && !DataValidator.isValidResponse(response)) {
+
+                //обработка видео
+                const proxyResponse = await this.proxyService.fetchResponse(requestUrl, requestOptions);
+                if (!proxyResponse.ok) {
+                    Logger.warning('Прокси-запрос завершился с ошибкой...');
+                    return response;
+                }
+                data = await this.proxyService.parseResponseData(proxyResponse);
+
+                response = new Response(JSON.stringify(data), {
+                    headers: {
+                        ...Object.fromEntries(response.headers),
+                        'content-type': 'application/json'
+                    },
+                    status: proxyResponse.status,
+                    statusText: proxyResponse.statusText,
+                });
+
+            } else {
+                //обработка всего остального
+                if (!DataValidator.isValidResponse(response)) {
+                    Logger.warning('Некорректный ответ от сервера...');
+                    return response;
+                }
+                data = await response.json();
+                if (this.proxyService.needProxy(data)) {
+                    Logger.warning('Запрос обработан, идет проксирование...');
+                    data = (await this.proxyService.fetchData(requestUrl, requestOptions)) || data;
+                }
+
             }
-            let data = await response.json();
-            if (this.proxyService.needProxy(data)) {
-                Logger.warning('Запрос обработан, идет проксирование...');
-                data = (await this.proxyService.fetchData(requestUrl, requestOptions)) || data;
+
+            if (!data) {
+                throw new Error('Данные для трансформации отсутствуют');
             }
+
             const modifiedData = this.dataTransformer.transformData(response.url, data);
             return this.responseBuilder.createModifiedResponse(response, modifiedData);
         } catch (e) {

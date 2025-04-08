@@ -10,6 +10,7 @@ export const ROUTE = Object.freeze({
     RELEASES: '/api/v1/anime/releases/',
     RELEASES_LATEST: '/api/v1/anime/releases/latest',
     RELEASES_RANDOM: '/api/v1/anime/releases/random',
+    EPISODES: '/api/v1/anime/releases/episodes/',
 });
 
 export const PROXY_API_URL = 'https://api.allorigins.win/get?url=';
