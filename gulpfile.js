@@ -2,7 +2,7 @@ const GULP = require('gulp');
 const FS = require('fs');
 const WEBPACK = require('webpack-stream');
 
-const SOURCE_DIR = 'al_fisher';
+const SOURCE_DIR = 'src';
 
 
 GULP.task('cleanup', async () => {

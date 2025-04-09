@@ -1,5 +1,5 @@
 export class Logger {
-    static #LOG_PREFIX = '[AL Fisher]';
+    static #LOG_PREFIX = '[Libria Interceptor]';
     static #COLOR_CODE = Object.freeze({
         GREEN: '\x1b[32m',
         YELLOW: '\x1b[33m',
