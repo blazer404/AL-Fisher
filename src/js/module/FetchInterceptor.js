@@ -33,9 +33,7 @@ export class FetchInterceptor {
         try {
             let response = await this.originalFetch(url, options);
             if (this.routeValidator.needInterceptRequest(url)) {
-                Logger.info('Модифицирую ответ для', url);
                 response = await this.#handleResponse(response, url, options);
-                Logger.info('Ответ модифицирован для', url);
             }
             return response;
         } catch (e) {
@@ -54,14 +52,20 @@ export class FetchInterceptor {
      */
     async #handleResponse(response, requestUrl, requestOptions) {
         try {
+            Logger.info('Модификация ответа для', requestUrl);
             let data;
             if (this.#needProxyVideo(requestUrl, response)) {
                 [response, data] = await this.#proxyVideoResponse(response, requestUrl, requestOptions);
             } else {
                 data = await this.#handleRegularResponse(response, requestUrl, requestOptions);
             }
-            this.#throwExceptionOnEmptyData(data);
-            return this.#buildFinalResponse(response, data);
+            if (data) {
+                response = await this.#buildFinalResponse(response, data);
+                Logger.info('Ответ модифицирован для', requestUrl);
+            } else {
+                Logger.info('Ответ не был модифицирован для', requestUrl);
+            }
+            return response;
         } catch (e) {
             Logger.error('Ошибка модификации ответа:', e);
             return response;
@@ -87,14 +91,15 @@ export class FetchInterceptor {
      * @returns {Promise<(Response|*)[]|*[]>} Модифицированный ответ и данные для трансформации
      */
     async #proxyVideoResponse(response, requestUrl, requestOptions) {
-        Logger.info('Проксирование запроса видео...');
+        Logger.info('Идет проксирование видео-запроса', '', true);
         const proxyResponse = await this.proxyService.fetchResponse(requestUrl, requestOptions);
         if (!DataValidator.isValidResponse(proxyResponse)) {
-            Logger.warning('Некорректный ответ от сервера...');
+            Logger.warning('Некорректный ответ от сервера');
             return [response, null];
         }
         const data = await this.proxyService.parseResponseData(proxyResponse);
         response = this.responseBuilder.transformResponse(proxyResponse, data);
+        Logger.info('Проксирование завершено', '', true);
         return [response, data];
     }
 
@@ -108,26 +113,17 @@ export class FetchInterceptor {
      */
     async #handleRegularResponse(response, requestUrl, requestOptions) {
         if (!DataValidator.isValidResponse(response)) {
-            Logger.warning('Некорректный ответ от сервера...');
+            Logger.warning('Некорректный ответ от сервера');
             return null;
         }
         let data = await response.json();
         if (this.proxyService.needProxy(data)) {
-            Logger.warning('Запрос обработан, идет проксирование...');
-            data = await this.proxyService.fetchData(requestUrl, requestOptions);
+            const proxiedData = await this.proxyService.fetchData(requestUrl, requestOptions);
+            if (proxiedData) {
+                data = proxiedData;
+            }
         }
         return data;
-    }
-
-    /**
-     * Выбрасывает исключение, если данные пусты или отсутствуют
-     * @param {Object|Array|null} data Данные для проверки
-     * @throws {Error} Если данные не предоставлены
-     */
-    #throwExceptionOnEmptyData(data) {
-        if (!data) {
-            throw new Error('Данные для трансформации отсутствуют...');
-        }
     }
 
     /**

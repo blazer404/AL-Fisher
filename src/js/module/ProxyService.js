@@ -29,10 +29,13 @@ export class ProxyService {
      */
     async fetchData(requestUrl, requestOptions) {
         try {
+            Logger.info('Запрос обработан, идет проксирование', '', true);
             const response = await this.fetchResponse(requestUrl, requestOptions);
-            return this.parseResponseData(response);
+            const data = await this.parseResponseData(response);
+            Logger.info('Проксирование завершено', '', true);
+            return data;
         } catch (e) {
-            Logger.warning('Проксирование не удалось...');
+            Logger.warning('Проксирование не удалось');
             return null;
         }
     }
