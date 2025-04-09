@@ -91,16 +91,17 @@ export class FetchInterceptor {
      * @returns {Promise<(Response|*)[]|*[]>} Модифицированный ответ и данные для трансформации
      */
     async #proxyVideoResponse(response, requestUrl, requestOptions) {
-        Logger.info('Идет проксирование видео-запроса', '', true);
-        const proxyResponse = await this.proxyService.fetchResponse(requestUrl, requestOptions);
-        if (!DataValidator.isValidResponse(proxyResponse)) {
-            Logger.warning('Некорректный ответ от сервера');
+        try {
+            Logger.info('Идет проксирование видео-запроса', '', true);
+            const proxyResponse = await this.proxyService.fetchResponse(requestUrl, requestOptions);
+            const data = await this.proxyService.parseResponseData(proxyResponse);
+            response = this.responseBuilder.transformResponse(proxyResponse, data);
+            Logger.info('Проксирование завершено', '', true);
+            return [response, data];
+        } catch (e) {
+            Logger.warning('Проксирование не удалось');
             return [response, null];
         }
-        const data = await this.proxyService.parseResponseData(proxyResponse);
-        response = this.responseBuilder.transformResponse(proxyResponse, data);
-        Logger.info('Проксирование завершено', '', true);
-        return [response, data];
     }
 
     /**
