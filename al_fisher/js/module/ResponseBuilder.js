@@ -2,12 +2,12 @@ export class ResponseBuilder {
     /**
      * Создает модифицированный ответ сервера
      * @param {Response} originalResponse Оригинальный ответ
-     * @param {Object|Array} modifiedData Модифицированные данные
+     * @param {Object|Array} transformedData Модифицированные данные
      * @returns {Response} Новый объект Response
      */
-    createModifiedResponse(originalResponse, modifiedData) {
+    transformResponse(originalResponse, transformedData) {
         const headers = this.#createHeaders(originalResponse.headers);
-        return this.#createResponse(originalResponse, modifiedData, headers);
+        return this.#createResponse(originalResponse, transformedData, headers);
     }
 
     /**
@@ -24,12 +24,12 @@ export class ResponseBuilder {
     /**
      * Создает модифицированный ответ
      * @param {Response} originalResponse Оригинальный ответ
-     * @param {Object|Array} modifiedData Модифицированные данные
+     * @param {Object|Array} data Данные ответа
      * @param {Headers} headers Новые заголовки
      * @returns {Response} Новый объект Response
      */
-    #createResponse(originalResponse, modifiedData, headers) {
-        return new Response(JSON.stringify(modifiedData), {
+    #createResponse(originalResponse, data, headers) {
+        return new Response(JSON.stringify(data), {
             headers,
             status: originalResponse.status,
             statusText: originalResponse.statusText,

@@ -26,7 +26,7 @@ export class FetchInterceptor {
      * Обработчик fetch запросов
      * @async
      * @param {string|Request} url URL запроса
-     * @param {Object} [options] Параметры запроса
+     * @param {RequestInit} [options] Параметры запроса
      * @returns {Promise<Response>} Обработанный ответ
      */
     async #fetchHandler(url, options) {
@@ -34,7 +34,7 @@ export class FetchInterceptor {
             let response = await this.originalFetch(url, options);
             if (this.routeValidator.needInterceptRequest(url)) {
                 Logger.info('Модифицирую ответ для', url);
-                response = await this.#transformResponse(response, url, options);
+                response = await this.#handleResponse(response, url, options);
                 Logger.info('Ответ модифицирован для', url);
             }
             return response;
@@ -49,57 +49,95 @@ export class FetchInterceptor {
      * @async
      * @param {Response} response Оригинальный ответ
      * @param {string|Request} requestUrl URL запроса
-     * @param {Object} [requestOptions] Параметры запроса
+     * @param {RequestInit} [requestOptions] Параметры запроса
      * @returns {Promise<Response>} Модифицированный ответ
      */
-    async #transformResponse(response, requestUrl, requestOptions) {
+    async #handleResponse(response, requestUrl, requestOptions) {
         try {
-            //todo
-            // отрефакторить метод
-
             let data;
-            if (this.routeValidator.isVideoRoute(requestUrl) && !DataValidator.isValidResponse(response)) {
-
-                //обработка видео
-                const proxyResponse = await this.proxyService.fetchResponse(requestUrl, requestOptions);
-                if (!proxyResponse.ok) {
-                    Logger.warning('Прокси-запрос завершился с ошибкой...');
-                    return response;
-                }
-                data = await this.proxyService.parseResponseData(proxyResponse);
-
-                response = new Response(JSON.stringify(data), {
-                    headers: {
-                        ...Object.fromEntries(response.headers),
-                        'content-type': 'application/json'
-                    },
-                    status: proxyResponse.status,
-                    statusText: proxyResponse.statusText,
-                });
-
+            if (this.#needProxyVideo(requestUrl, response)) {
+                [response, data] = await this.#proxyVideoResponse(response, requestUrl, requestOptions);
             } else {
-                //обработка всего остального
-                if (!DataValidator.isValidResponse(response)) {
-                    Logger.warning('Некорректный ответ от сервера...');
-                    return response;
-                }
-                data = await response.json();
-                if (this.proxyService.needProxy(data)) {
-                    Logger.warning('Запрос обработан, идет проксирование...');
-                    data = (await this.proxyService.fetchData(requestUrl, requestOptions)) || data;
-                }
-
+                data = await this.#handleRegularResponse(response, requestUrl, requestOptions);
             }
-
-            if (!data) {
-                throw new Error('Данные для трансформации отсутствуют');
-            }
-
-            const modifiedData = this.dataTransformer.transformData(response.url, data);
-            return this.responseBuilder.createModifiedResponse(response, modifiedData);
+            this.#throwExceptionOnEmptyData(data);
+            return this.#buildFinalResponse(response, data);
         } catch (e) {
             Logger.error('Ошибка модификации ответа:', e);
             return response;
         }
+    }
+
+    /**
+     * Нужно ли проксировать запрос к видео
+     * @param {string|Request} requestUrl URL запроса
+     * @param {Response} response Оригинальный ответ сервера
+     * @returns {boolean}
+     */
+    #needProxyVideo(requestUrl, response) {
+        return this.routeValidator.isVideoRoute(requestUrl) && !DataValidator.isValidResponse(response);
+    }
+
+    /**
+     * Проксирование запроса к видео
+     * @async
+     * @param {Response} response Оригинальный ответ
+     * @param {string|Request} requestUrl URL запроса
+     * @param {RequestInit} [requestOptions] Параметры запроса
+     * @returns {Promise<(Response|*)[]|*[]>} Модифицированный ответ и данные для трансформации
+     */
+    async #proxyVideoResponse(response, requestUrl, requestOptions) {
+        Logger.info('Проксирование запроса видео...');
+        const proxyResponse = await this.proxyService.fetchResponse(requestUrl, requestOptions);
+        if (!DataValidator.isValidResponse(proxyResponse)) {
+            Logger.warning('Некорректный ответ от сервера...');
+            return [response, null];
+        }
+        const data = await this.proxyService.parseResponseData(proxyResponse);
+        response = this.responseBuilder.transformResponse(proxyResponse, data);
+        return [response, data];
+    }
+
+    /**
+     * Стандартная обработка ответа
+     * @async
+     * @param {Response} response Оригинальный ответ
+     * @param {string|Request} requestUrl URL запроса
+     * @param {RequestInit} [requestOptions] Параметры запроса
+     * @returns {Promise<*|null>} Данные для трансформации
+     */
+    async #handleRegularResponse(response, requestUrl, requestOptions) {
+        if (!DataValidator.isValidResponse(response)) {
+            Logger.warning('Некорректный ответ от сервера...');
+            return null;
+        }
+        let data = await response.json();
+        if (this.proxyService.needProxy(data)) {
+            Logger.warning('Запрос обработан, идет проксирование...');
+            data = await this.proxyService.fetchData(requestUrl, requestOptions);
+        }
+        return data;
+    }
+
+    /**
+     * Выбрасывает исключение, если данные пусты или отсутствуют
+     * @param {Object|Array|null} data Данные для проверки
+     * @throws {Error} Если данные не предоставлены
+     */
+    #throwExceptionOnEmptyData(data) {
+        if (!data) {
+            throw new Error('Данные для трансформации отсутствуют...');
+        }
+    }
+
+    /**
+     * Сборка конечного модифицированного ответа
+     * @param {Response} response Оригинальный ответ
+     * @param {Object|Array} data Оригинальные данные
+     * @returns {Response} Модифицированный ответ
+     */
+    #buildFinalResponse(response, data) {
+        const transformedData = this.dataTransformer.transformData(response.url, data);
+        return this.responseBuilder.transformResponse(response, transformedData);
     }
 }
