@@ -1,4 +1,4 @@
-import {PROXY_API_URL} from './Constants';
+import {PROXY_API_URL, FAKE_USER_AGENT} from './Constants';
 import {DataValidator} from './DataValidator';
 import {Logger} from './Logger';
 
@@ -60,7 +60,7 @@ export class ProxyService {
      */
     #setRequestHeaders(originalHeaders) {
         const headers = new Headers(originalHeaders || {});
-        headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 OPR/117.0.0.0');
+        headers.set('User-Agent', FAKE_USER_AGENT);
         headers.delete('content-length');
         return headers;
     }
