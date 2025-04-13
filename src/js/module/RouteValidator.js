@@ -1,4 +1,4 @@
-import {ROUTE} from './Constants';
+import {MESSAGE_LIB, ROUTE} from './Constants';
 import {Logger} from './Logger';
 
 export class RouteValidator {
@@ -24,7 +24,7 @@ export class RouteValidator {
             if (!currentUrl || !targetRoute) return false;
             return new URL(currentUrl, window.location.origin).pathname.startsWith(targetRoute);
         } catch (e) {
-            Logger.error('Ошибка при проверке URL:', e);
+            Logger.error(MESSAGE_LIB.URL_CHECK_ERROR, e);
             return false;
         }
     }

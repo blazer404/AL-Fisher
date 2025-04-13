@@ -1,4 +1,4 @@
-import {FAKE_USER_LOCATION, ROUTE} from './Constants';
+import {FAKE_USER_LOCATION, MESSAGE_LIB, ROUTE} from './Constants';
 import {DataValidator} from './DataValidator';
 import {Logger} from './Logger';
 import {RouteValidator} from './RouteValidator';
@@ -16,7 +16,7 @@ export class DataTransformer {
      */
     transformData(url, data) {
         if (!DataValidator.isValidData(data)) {
-            Logger.warning('Получены некорректные данные');
+            Logger.warning(MESSAGE_LIB.WRONG_DATA);
             return data;
         }
         switch (true) {

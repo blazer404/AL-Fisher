@@ -1,4 +1,4 @@
-import {PROXY_API_URL, FAKE_USER_AGENT} from './Constants';
+import {FAKE_USER_AGENT, MESSAGE_LIB, PROXY_API_URL} from './Constants';
 import {DataValidator} from './DataValidator';
 import {Logger} from './Logger';
 
@@ -29,13 +29,13 @@ export class ProxyService {
      */
     async fetchData(requestUrl, requestOptions) {
         try {
-            Logger.info('Запрос обработан, идет проксирование', '', true);
+            Logger.info(MESSAGE_LIB.PROXY_RUNNING, '', true);
             const response = await this.fetchResponse(requestUrl, requestOptions);
             const data = await this.parseResponseData(response);
-            Logger.info('Проксирование завершено', '', true);
+            Logger.info(MESSAGE_LIB.PROXY_FINISHED, '', true);
             return data;
         } catch (e) {
-            Logger.warning('Проксирование не удалось');
+            Logger.warning(MESSAGE_LIB.PROXY_FAILED);
             return null;
         }
     }

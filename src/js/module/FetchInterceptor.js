@@ -1,3 +1,4 @@
+import {MESSAGE_LIB} from './Constants';
 import {DataTransformer} from './DataTransformer';
 import {DataValidator} from './DataValidator';
 import {Logger} from './Logger';
@@ -37,7 +38,7 @@ export class FetchInterceptor {
             }
             return response;
         } catch (e) {
-            Logger.error('Ошибка при обработке запроса:', e);
+            Logger.error(MESSAGE_LIB.HANDLER_ERROR, e);
             throw e;
         }
     }
@@ -52,7 +53,7 @@ export class FetchInterceptor {
      */
     async #handleResponse(response, requestUrl, requestOptions) {
         try {
-            Logger.info('Модификация ответа для', requestUrl);
+            Logger.info(MESSAGE_LIB.TRANSFORM_RUNNING, requestUrl);
             let data;
             if (this.#needProxyVideo(requestUrl, response)) {
                 [response, data] = await this.#proxyVideoResponse(response, requestUrl, requestOptions);
@@ -61,13 +62,13 @@ export class FetchInterceptor {
             }
             if (data) {
                 response = await this.#buildFinalResponse(response, data);
-                Logger.info('Ответ модифицирован для', requestUrl);
+                Logger.info(MESSAGE_LIB.TRANSFORM_FINISHED, requestUrl);
             } else {
-                Logger.info('Ответ не был модифицирован для', requestUrl);
+                Logger.info(MESSAGE_LIB.TRANSFORM_FAILED, requestUrl);
             }
             return response;
         } catch (e) {
-            Logger.error('Ошибка модификации ответа:', e);
+            Logger.error(MESSAGE_LIB.TRANSFORM_ERROR, e);
             return response;
         }
     }
@@ -92,14 +93,14 @@ export class FetchInterceptor {
      */
     async #proxyVideoResponse(response, requestUrl, requestOptions) {
         try {
-            Logger.info('Идет проксирование видео-запроса', '', true);
+            Logger.info(MESSAGE_LIB.PROXY_RUNNING, '', true);
             const proxyResponse = await this.proxyService.fetchResponse(requestUrl, requestOptions);
             const data = await this.proxyService.parseResponseData(proxyResponse);
             response = this.responseBuilder.transformResponse(proxyResponse, data);
-            Logger.info('Проксирование завершено', '', true);
+            Logger.info(MESSAGE_LIB.PROXY_FINISHED, '', true);
             return [response, data];
         } catch (e) {
-            Logger.warning('Проксирование не удалось');
+            Logger.warning(MESSAGE_LIB.PROXY_FAILED);
             return [response, null];
         }
     }
@@ -114,7 +115,7 @@ export class FetchInterceptor {
      */
     async #handleRegularResponse(response, requestUrl, requestOptions) {
         if (!DataValidator.isValidResponse(response)) {
-            Logger.warning('Некорректный ответ от сервера');
+            Logger.warning(MESSAGE_LIB.WRONG_RESPONSE);
             return null;
         }
         let data = await response.json();
