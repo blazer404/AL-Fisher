@@ -19,7 +19,8 @@
         "js/main.js"
       ],
       "matches": [
-        "*://anilibria.top/*"
+        "*://anilibria.top/*",
+        "*://anilibria.wtf/*"
       ],
       "run_at": "document_start",
       "all_frames": true,
