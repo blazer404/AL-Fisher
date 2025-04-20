@@ -29,5 +29,5 @@ export const MESSAGE_LIB = Object.freeze({
     PROXY_FAILED: 'Проксирование не удалось',
     URL_CHECK_ERROR: 'Ошибка при проверке URL:',
     WRONG_DATA: 'Переданы некорректные данные',
-    WRONG_RESPONSE: 'Получены некорректный ответ от сервера',
+    WRONG_RESPONSE: 'Получен некорректный ответ от сервера',
 });
