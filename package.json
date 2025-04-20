@@ -4,6 +4,7 @@
   "description": "",
   "main": "main.js",
   "scripts": {
+    "build-dist": "gulp build",
     "build": "gulp build && node crx_builder.js"
   },
   "keywords": [],
